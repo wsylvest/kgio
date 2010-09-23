@@ -1,0 +1,9 @@
+LICENSE
+README
+TODO
+NEWS
+ChangeLog
+ISSUES
+HACKING
+lib
+ext/kgio/kgio_ext.c

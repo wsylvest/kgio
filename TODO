@@ -1,0 +1,5 @@
+* more API documentation
+
+* return (instead of raise) EOFError?
+
+* SSL/TLS support

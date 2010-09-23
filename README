@@ -1,0 +1,66 @@
+= kgio - kinder, gentler I/O for Ruby
+
+kgio provides non-blocking I/O methods for Ruby without raising
+exceptions on EAGAIN and EINPROGRESS.  It is intended for use with the
+Unicorn and Rainbows! Rack servers, but may be used by other
+applications.
+
+== Features
+
+* Avoids exceptions on common EAGAIN/EINPROGRESS errors, returning
+  Kgio::WaitReadable or Kgio::WaitWritable instead.
+  These exceptions got more expensive to hit under Ruby 1.9.2
+  (but should be fixed in Ruby 1.9.3 to 1.9.1 performance levels)
+
+* Returns the unwritten portion of the string on partial writes,
+  making it ideal for buffering unwritten portions.
+
+* May be assigned Kgio.wait_writable= and Kgio.wait_readable=
+  methods to allow socket/pipe objects to make custom callbacks
+  (such as adding the file descriptor to a poll set and yielding
+  the current Fiber).
+
+* Uses
+  {accept4}[http://kernel.org/doc/man-pages/online/pages/man2/accept4.2.html]
+  on new GNU/Linux systems to avoid unnecessary fcntl() calls
+
+* uses MSG_DONTWAIT where available to further avoid unnecessary fcntl() calls
+
+== Install
+
+The library consists of a C extension so you'll need a C compiler
+and Ruby development libraries/headers.
+
+You may download the tarball from the Mongrel project page on Rubyforge
+and run setup.rb after unpacking it:
+
+http://rubyforge.org/frs/?group_id=8977
+
+You may also install it via RubyGems on Gemcutter:
+
+  gem install kgio
+
+You can get the latest source via git from the following locations
+(these versions may not be stable):
+
+  git://git.bogomips.org/kgio.git
+  git://repo.or.cz/kgio.git (mirror)
+
+You may browse the code from the web and download the latest snapshot
+tarballs here:
+
+* http://git.bogomips.org/cgit/kgio.git (cgit)
+* http://repo.or.cz/w/kgio.git (gitweb)
+
+See the HACKING guide on how to contribute and build prerelease gems
+from git.
+
+== Contact
+
+All feedback (bug reports, user/development dicussion, patches, pull
+requests) go to the mailing list/newsgroup.  See the ISSUES document for
+information on the
+{Unicorn mailing list}[mailto:mongrel-unicorn@rubyforge.org].
+
+For the latest on kgio releases, you may check our NEWS page (and
+subscribe to our Atom feed).
