@@ -21,7 +21,9 @@ module LibReadWriteTest
 
   def test_write_closed
     @rd.close
-    assert_raises(Errno::EPIPE) { loop { @wr.kgio_write "HI" } }
+    assert_raises(Errno::EPIPE, Errno::ECONNRESET) {
+      loop { @wr.kgio_write "HI" }
+    }
   end
 
   def test_write_conv
