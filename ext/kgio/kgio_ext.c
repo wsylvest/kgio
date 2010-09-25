@@ -14,61 +14,19 @@
 #include <arpa/inet.h>
 #include <assert.h>
 
-#ifndef SOCK_CLOEXEC
-#  if (FD_CLOEXEC == O_NONBLOCK)
-#    define SOCK_CLOEXEC 1
-#    define SOCK_NONBLOCK 2
-#  else
-#    define SOCK_CLOEXEC FD_CLOEXEC
-#    define SOCK_NONBLOCK O_NONBLOCK
-#  endif
-#endif
+#include "missing/accept4.h"
+#include "nonblock.h"
+#include "my_fileno.h"
+#include "sock_for_fd.h"
 
-static void set_nonblocking(int fd)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (flags == -1)
-		rb_sys_fail("fcntl(F_GETFL)");
-	if ((flags & O_NONBLOCK) == O_NONBLOCK)
-		return;
-	flags = fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-	if (flags == -1)
-		rb_sys_fail("fcntl(F_SETFL)");
-}
-
-#ifndef HAVE_ACCEPT4
-/* accept4() is currently a Linux-only goodie */
-static int
-accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
-{
-	int fd = accept(sockfd, addr, addrlen);
-
-	if (fd >= 0) {
-		if ((flags & SOCK_CLOEXEC) == SOCK_CLOEXEC)
-			(void)fcntl(fd, F_SETFD, FD_CLOEXEC);
-
-		/*
-		 * Some systems inherit O_NONBLOCK across accept().
-		 * We also expect our users to use MSG_DONTWAIT
-		 * where possible, so fcntl() is completely unnecessary.
-		 */
-		if ((flags & SOCK_NONBLOCK) == SOCK_NONBLOCK)
-			set_nonblocking(fd);
-		errno = 0;
-	}
-	return fd;
-}
-#endif /* !HAVE_ACCEPT4 */
 #if defined(__linux__)
-static int accept4_flags = SOCK_CLOEXEC;
-
 /*
  * we know MSG_DONTWAIT works properly on all stream sockets under Linux
  * we can define this macro for other platforms as people care and
  * notice.
  */
 #  define USE_MSG_DONTWAIT
+static int accept4_flags = SOCK_CLOEXEC;
 #else
 static int accept4_flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
 #endif
@@ -79,78 +37,6 @@ static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
 static ID io_wait_rd, io_wait_wr;
 static ID iv_kgio_addr, id_ruby;
 
-#if ! HAVE_RB_IO_T
-#  define rb_io_t OpenFile
-#endif
-
-#ifdef GetReadFile
-#  define FPTR_TO_FD(fptr) (fileno(GetReadFile(fptr)))
-#else
-#  if !HAVE_RB_IO_T || (RUBY_VERSION_MAJOR == 1 && RUBY_VERSION_MINOR == 8)
-#    define FPTR_TO_FD(fptr) fileno(fptr->f)
-#  else
-#    define FPTR_TO_FD(fptr) fptr->fd
-#  endif
-#endif
-
-#if defined(MakeOpenFile) && \
-    defined(HAVE_RB_IO_T) && (HAVE_RB_IO_T == 1) && \
-    defined(HAVE_RB_IO_ASCII8BIT_BINMODE) && \
-    defined(HAVE_ST_FD) && \
-    defined(HAVE_ST_MODE)
-#  define SOCK_FOR_FD (19)
-#  define FMODE_NOREVLOOKUP 0x100
-#elif defined(MakeOpenFile) && \
-      defined(HAVE_RB_FDOPEN) && \
-      defined(HAVE_ST_F) && \
-      defined(HAVE_ST_F2) && \
-      defined(HAVE_ST_MODE)
-#  define SOCK_FOR_FD (18)
-#else
-#  define SOCK_FOR_FD (-1)
-#endif
-
-#if SOCK_FOR_FD == 19  /* modeled after ext/socket/init.c */
-static VALUE sock_for_fd(VALUE klass, int fd)
-{
-	VALUE sock = rb_obj_alloc(klass);
-	rb_io_t *fp;
-
-	MakeOpenFile(sock, fp);
-	fp->fd = fd;
-	fp->mode = FMODE_READWRITE|FMODE_DUPLEX|FMODE_NOREVLOOKUP;
-	rb_io_ascii8bit_binmode(sock);
-	rb_io_synchronized(fp);
-	return sock;
-}
-#elif SOCK_FOR_FD == 18 /* modeled after init_sock() in ext/socket/socket.c */
-static VALUE sock_for_fd(VALUE klass, int fd)
-{
-	VALUE sock = rb_obj_alloc(klass);
-	rb_io_t *fp;
-
-	MakeOpenFile(sock, fp);
-	fp->f = rb_fdopen(fd, "r");
-	fp->f2 = rb_fdopen(fd, "w");
-	fp->mode = FMODE_READWRITE;
-	rb_io_synchronized(fp);
-	return sock;
-}
-#else /* Rubinius, et al. */
-static ID id_for_fd;
-static VALUE sock_for_fd(VALUE klass, int fd)
-{
-	return rb_funcall(klass, id_for_fd, 1, INT2NUM(fd));
-}
-static void init_sock_for_fd(void)
-{
-	id_for_fd = rb_intern("for_fd");
-}
-#endif /* sock_for_fd */
-#if SOCK_FOR_FD > 0
-#  define init_sock_for_fd() if (0)
-#endif
-
 struct io_args {
 	VALUE io;
 	VALUE buf;
@@ -158,21 +44,6 @@ struct io_args {
 	long len;
 	int fd;
 };
-
-static int my_fileno(VALUE io)
-{
-	rb_io_t *fptr;
-	int fd;
-
-	if (TYPE(io) != T_FILE)
-		io = rb_convert_type(io, T_FILE, "IO", "to_io");
-	GetOpenFile(io, fptr);
-	fd = FPTR_TO_FD(fptr);
-
-	if (fd < 0)
-		rb_raise(rb_eIOError, "closed stream");
-	return fd;
-}
 
 static int maybe_wait_readable(VALUE io)
 {
