@@ -21,7 +21,7 @@ module LibReadWriteTest
 
   def test_write_closed
     @rd.close
-    assert_raises(Errno::EPIPE) { @wr.kgio_write "HI" }
+    assert_raises(Errno::EPIPE) { loop { @wr.kgio_write "HI" } }
   end
 
   def test_write_conv
@@ -86,7 +86,7 @@ module LibReadWriteTest
       foo = @rd.kgio_read(5)
       elapsed = Time.now - t0
     end
-    assert elapsed >= 1.0
+    assert elapsed >= 1.0, "elapsed: #{elapsed}"
     assert_equal "HELLO", foo
     thr.join
     assert_equal 5, thr.value
@@ -113,7 +113,9 @@ module LibReadWriteTest
       elapsed = Time.now - t0
     end
     assert_nil foo
-    assert elapsed >= 1.0
+    if @wr.stat.pipe?
+      assert elapsed >= 1.0, "elapsed: #{elapsed}"
+    end
     assert(String === foo || foo == nil)
     assert_kind_of String, thr.value
   end
