@@ -60,8 +60,19 @@ accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 	return fd;
 }
 #endif /* !HAVE_ACCEPT4 */
-
+#if defined(__linux__)
 static int accept4_flags = SOCK_CLOEXEC;
+
+/*
+ * we know MSG_DONTWAIT works properly on all stream sockets under Linux
+ * we can define this macro for other platforms as people care and
+ * notice.
+ */
+#  define USE_MSG_DONTWAIT
+#else
+static int accept4_flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
+#endif
+
 static VALUE cSocket;
 static VALUE localhost;
 static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
@@ -236,7 +247,7 @@ static int read_check(struct io_args *a, long n, const char *msg)
 	return 0;
 }
 
-#ifdef MSG_DONTWAIT
+#ifdef USE_MSG_DONTWAIT
 
 /*
  * Document-method: Kgio::SocketMethods#kgio_read
@@ -263,9 +274,9 @@ retry:
 		goto retry;
 	return a.buf;
 }
-#else /* ! MSG_DONTWAIT */
-#  define kgio_recv kgio_write
-#endif /* MSG_DONTWAIT */
+#else /* ! USE_MSG_DONTWAIT */
+#  define kgio_recv kgio_read
+#endif /* USE_MSG_DONTWAIT */
 
 /*
  * Document-method: Kgio::PipeMethods#kgio_read
@@ -347,7 +358,7 @@ retry:
 	return a.buf;
 }
 
-#ifdef MSG_DONTWAIT
+#ifdef USE_MSG_DONTWAIT
 /*
  * This method behaves like Kgio::PipeMethods#kgio_write, except
  * it will use send(2) with the MSG_DONTWAIT flag on sockets to
@@ -365,9 +376,9 @@ retry:
 		goto retry;
 	return a.buf;
 }
-#else /* ! MSG_DONTWAIT */
+#else /* ! USE_MSG_DONTWAIT */
 #  define kgio_send kgio_write
-#endif /* ! MSG_DONTWAIT */
+#endif /* ! USE_MSG_DONTWAIT */
 
 /*
  * call-seq:
