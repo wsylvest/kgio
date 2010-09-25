@@ -16,7 +16,7 @@ module LibReadWriteTest
 
   def test_read_eof
     @wr.close
-    assert_raises(EOFError) { @rd.kgio_read 5 }
+    assert_nil @rd.kgio_read(5)
   end
 
   def test_write_closed

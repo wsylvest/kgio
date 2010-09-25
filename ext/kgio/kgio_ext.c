@@ -114,7 +114,7 @@ static int read_check(struct io_args *a, long n, const char *msg)
 	}
 	rb_str_set_len(a->buf, n);
 	if (n == 0)
-		rb_eof_error();
+		a->buf = Qnil;
 	return 0;
 }
 
