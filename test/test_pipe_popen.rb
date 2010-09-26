@@ -6,7 +6,7 @@ require 'kgio'
 class TestPipePopen < Test::Unit::TestCase
   def test_popen
     io = Kgio::Pipe.popen("sleep 1 && echo HI")
-    assert_equal Kgio::WaitReadable, io.kgio_read(2)
+    assert_equal Kgio::WaitReadable, io.kgio_tryread(2)
     sleep 1.5
     assert_equal "HI\n", io.kgio_read(3)
     assert_nil io.kgio_read(5)
