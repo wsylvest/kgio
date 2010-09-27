@@ -95,6 +95,20 @@ module LibReadWriteTest
     tmp.each { |count| assert_equal nil, count }
   end
 
+  def test_tryread_extra_buf_eagain_clears_buffer
+    tmp = "hello world"
+    rv = @rd.kgio_tryread(2, tmp)
+    assert_equal Kgio::WaitReadable, rv
+    assert_equal "", tmp
+  end
+
+  def test_tryread_extra_buf_eof_clears_buffer
+    tmp = "hello world"
+    @wr.close
+    assert_nil @rd.kgio_tryread(2, tmp)
+    assert_equal "", tmp
+  end
+
   def test_monster_trywrite
     buf = "." * 1024 * 1024 * 10
     rv = @wr.kgio_trywrite(buf)
