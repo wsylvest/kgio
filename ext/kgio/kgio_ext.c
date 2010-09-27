@@ -26,9 +26,9 @@
  * notice.
  */
 #  define USE_MSG_DONTWAIT
-static int accept4_flags = SOCK_CLOEXEC;
+static int accept4_flags = A4_SOCK_CLOEXEC;
 #else /* ! linux */
-static int accept4_flags = SOCK_CLOEXEC | SOCK_NONBLOCK;
+static int accept4_flags = A4_SOCK_CLOEXEC | A4_SOCK_NONBLOCK;
 #endif /* ! linux */
 
 static VALUE cSocket;
@@ -411,22 +411,24 @@ static VALUE tcp_accept(VALUE io)
 
 static VALUE get_cloexec(VALUE mod)
 {
-	return (accept4_flags & SOCK_CLOEXEC) == SOCK_CLOEXEC ? Qtrue : Qfalse;
+	return (accept4_flags & A4_SOCK_CLOEXEC) ==
+	    A4_SOCK_CLOEXEC ? Qtrue : Qfalse;
 }
 
 static VALUE get_nonblock(VALUE mod)
 {
-	return (accept4_flags & SOCK_NONBLOCK)==SOCK_NONBLOCK ? Qtrue : Qfalse;
+	return (accept4_flags & A4_SOCK_NONBLOCK) ==
+	    A4_SOCK_NONBLOCK ? Qtrue : Qfalse;
 }
 
 static VALUE set_cloexec(VALUE mod, VALUE boolean)
 {
 	switch (TYPE(boolean)) {
 	case T_TRUE:
-		accept4_flags |= SOCK_CLOEXEC;
+		accept4_flags |= A4_SOCK_CLOEXEC;
 		return boolean;
 	case T_FALSE:
-		accept4_flags &= ~SOCK_CLOEXEC;
+		accept4_flags &= ~A4_SOCK_CLOEXEC;
 		return boolean;
 	}
 	rb_raise(rb_eTypeError, "not true or false");
@@ -437,10 +439,10 @@ static VALUE set_nonblock(VALUE mod, VALUE boolean)
 {
 	switch (TYPE(boolean)) {
 	case T_TRUE:
-		accept4_flags |= SOCK_NONBLOCK;
+		accept4_flags |= A4_SOCK_NONBLOCK;
 		return boolean;
 	case T_FALSE:
-		accept4_flags &= ~SOCK_NONBLOCK;
+		accept4_flags &= ~A4_SOCK_NONBLOCK;
 		return boolean;
 	}
 	rb_raise(rb_eTypeError, "not true or false");
@@ -455,10 +457,16 @@ static void close_fail(int fd, const char *msg)
 	rb_sys_fail(msg);
 }
 
+#ifdef SOCK_NONBLOCK
+#  define MY_SOCK_STREAM (SOCK_STREAM|SOCK_NONBLOCK)
+#else
+#  define MY_SOCK_STREAM SOCK_STREAM
+#endif /* ! SOCK_NONBLOCK */
+
 static VALUE
 my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 {
-	int fd = socket(domain, SOCK_STREAM, 0);
+	int fd = socket(domain, MY_SOCK_STREAM, 0);
 
 	if (fd == -1) {
 		switch (errno) {
@@ -469,14 +477,16 @@ my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 #endif /* ENOBUFS */
 			errno = 0;
 			rb_gc();
-			fd = socket(domain, SOCK_STREAM, 0);
+			fd = socket(domain, MY_SOCK_STREAM, 0);
 		}
 		if (fd == -1)
 			rb_sys_fail("socket");
 	}
 
+#ifndef SOCK_NONBLOCK
 	if (fcntl(fd, F_SETFL, O_RDWR | O_NONBLOCK) == -1)
 		close_fail(fd, "fcntl(F_SETFL, O_RDWR | O_NONBLOCK)");
+#endif /* SOCK_NONBLOCK */
 
 	if (connect(fd, addr, addrlen) == -1) {
 		if (errno == EINPROGRESS) {
