@@ -114,12 +114,14 @@ module LibReadWriteTest
     rv = @wr.kgio_trywrite(buf)
     assert_kind_of String, rv
     assert rv.size < buf.size
+    @rd.nonblock = false
     assert_equal(buf, (rv + @rd.read(buf.size - rv.size)))
   end
 
   def test_monster_write
     buf = "." * 1024 * 1024 * 10
     thr = Thread.new { @wr.kgio_write(buf) }
+    @rd.nonblock = false
     readed = @rd.read(buf.size)
     thr.join
     assert_nil thr.value
