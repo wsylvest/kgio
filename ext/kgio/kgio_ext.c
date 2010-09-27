@@ -45,6 +45,12 @@ struct io_args {
 	int fd;
 };
 
+struct accept_args {
+	int fd;
+	struct sockaddr *addr;
+	socklen_t *addrlen;
+};
+
 static void wait_readable(VALUE io)
 {
 	if (io_wait_rd) {
@@ -337,23 +343,94 @@ static VALUE wait_rd(VALUE mod)
 	return io_wait_rd ? ID2SYM(io_wait_rd) : Qnil;
 }
 
+static VALUE xaccept(void *ptr)
+{
+	struct accept_args *a = ptr;
+
+	return (VALUE)accept4(a->fd, a->addr, a->addrlen, accept4_flags);
+}
+
+#ifdef HAVE_RB_THREAD_BLOCKING_REGION
+#  include <time.h>
+static int thread_accept(struct accept_args *a, int force_nonblock)
+{
+	if (force_nonblock)
+		set_nonblocking(a->fd);
+	return (int)rb_thread_blocking_region(xaccept, a, RUBY_UBF_IO, 0);
+}
+
+/*
+ * Try to use a (real) blocking accept() since that can prevent
+ * thundering herds under Linux:
+ * http://www.citi.umich.edu/projects/linux-scalability/reports/accept.html
+ *
+ * So we periodically disable non-blocking, but not too frequently
+ * because other processes may set non-blocking (especially during
+ * a process upgrade) with Rainbows! concurrency model changes.
+ */
+static void set_blocking_or_block(int fd)
+{
+	static time_t last_set_blocking;
+	time_t now = time(NULL);
+
+	if (last_set_blocking == 0) {
+		last_set_blocking = now;
+		(void)rb_io_wait_readable(fd);
+	} else if ((now - last_set_blocking) <= 5) {
+		(void)rb_io_wait_readable(fd);
+	} else {
+		int flags = fcntl(fd, F_GETFL);
+		if (flags == -1)
+			rb_sys_fail("fcntl(F_GETFL)");
+		if (flags & O_NONBLOCK) {
+			flags = fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+			if (flags == -1)
+				rb_sys_fail("fcntl(F_SETFL)");
+		}
+		last_set_blocking = now;
+	}
+}
+#else /* ! HAVE_RB_THREAD_BLOCKING_REGION */
+#  include <rubysig.h>
+static int thread_accept(struct accept_args *a, int force_nonblock)
+{
+	int rv;
+
+	/* always use non-blocking accept() under 1.8 for green threads */
+	set_nonblocking(a->fd);
+	TRAP_BEG;
+	rv = (int)xaccept(a);
+	TRAP_END;
+	return rv;
+}
+#define set_blocking_or_block(fd) (void)rb_io_wait_readable(fd)
+#endif /* ! HAVE_RB_THREAD_BLOCKING_REGION */
+
 static VALUE
-my_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+my_accept(VALUE io, struct sockaddr *addr, socklen_t *addrlen, int nonblock)
 {
 	int client;
+	struct accept_args a;
 
+	a.fd = my_fileno(io);
+	a.addr = addr;
+	a.addrlen = addrlen;
 retry:
-	client = accept4(sockfd, addr, addrlen, accept4_flags);
+	client = thread_accept(&a, nonblock);
 	if (client == -1) {
 		switch (errno) {
 		case EAGAIN:
+			if (nonblock)
+				return Qnil;
+			set_blocking_or_block(a.fd);
 #ifdef ECONNABORTED
 		case ECONNABORTED:
 #endif /* ECONNABORTED */
 #ifdef EPROTO
 		case EPROTO:
 #endif /* EPROTO */
-			return Qnil;
+		case EINTR:
+			goto retry;
 		case ENOMEM:
 		case EMFILE:
 		case ENFILE:
@@ -362,50 +439,65 @@ retry:
 #endif /* ENOBUFS */
 			errno = 0;
 			rb_gc();
-			client = accept4(sockfd, addr, addrlen, accept4_flags);
-			break;
-		case EINTR:
-			goto retry;
+			client = thread_accept(&a, nonblock);
 		}
-		if (client == -1)
+		if (client == -1) {
+			if (errno == EINTR)
+				goto retry;
 			rb_sys_fail("accept");
+		}
 	}
 	return sock_for_fd(cSocket, client);
 }
 
-/* non-blocking flag should be set on this socket before accept() is called */
-static VALUE unix_accept(VALUE io)
+static void in_addr_set(VALUE io, struct sockaddr_in *addr)
 {
-	int fd = my_fileno(io);
-	VALUE rv = my_accept(fd, NULL, NULL);
-
-	if (! NIL_P(rv))
-		rb_ivar_set(rv, iv_kgio_addr, localhost);
-
-	return rv;
-}
-
-/* non-blocking flag should be set on this socket before accept() is called */
-static VALUE tcp_accept(VALUE io)
-{
-	int fd = my_fileno(io);
-	struct sockaddr_in addr;
-	socklen_t addrlen = sizeof(struct sockaddr_in);
-	VALUE host;
+	VALUE host = rb_str_new(0, INET_ADDRSTRLEN);
+	socklen_t addrlen = (socklen_t)INET_ADDRSTRLEN;
 	const char *name;
-	VALUE rv = my_accept(fd, (struct sockaddr *)&addr, &addrlen);
 
-	if (NIL_P(rv))
-		return rv;
-
-	host = rb_str_new(0, INET_ADDRSTRLEN);
-	addrlen = (socklen_t)INET_ADDRSTRLEN;
-	name = inet_ntop(AF_INET, &addr.sin_addr, RSTRING_PTR(host), addrlen);
+	name = inet_ntop(AF_INET, &addr->sin_addr, RSTRING_PTR(host), addrlen);
 	if (name == NULL)
 		rb_sys_fail("inet_ntop");
 	rb_str_set_len(host, strlen(name));
-	rb_ivar_set(rv, iv_kgio_addr, host);
+	rb_ivar_set(io, iv_kgio_addr, host);
+}
 
+static VALUE tcp_tryaccept(VALUE io)
+{
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(struct sockaddr_in);
+	VALUE rv = my_accept(io, (struct sockaddr *)&addr, &addrlen, 1);
+
+	if (!NIL_P(rv))
+		in_addr_set(rv, &addr);
+	return rv;
+}
+
+static VALUE tcp_accept(VALUE io)
+{
+	struct sockaddr_in addr;
+	socklen_t addrlen = sizeof(struct sockaddr_in);
+	VALUE rv = my_accept(io, (struct sockaddr *)&addr, &addrlen, 0);
+
+	in_addr_set(rv, &addr);
+	return rv;
+}
+
+static VALUE unix_tryaccept(VALUE io)
+{
+	VALUE rv = my_accept(io, NULL, NULL, 1);
+
+	if (!NIL_P(rv))
+		rb_ivar_set(rv, iv_kgio_addr, localhost);
+	return rv;
+}
+
+static VALUE unix_accept(VALUE io)
+{
+	VALUE rv = my_accept(io, NULL, NULL, 0);
+
+	rb_ivar_set(rv, iv_kgio_addr, localhost);
 	return rv;
 }
 
@@ -697,10 +789,12 @@ void Init_kgio_ext(void)
 
 	cUNIXServer = rb_const_get(rb_cObject, rb_intern("UNIXServer"));
 	cUNIXServer = rb_define_class_under(mKgio, "UNIXServer", cUNIXServer);
+	rb_define_method(cUNIXServer, "kgio_tryaccept", unix_tryaccept, 0);
 	rb_define_method(cUNIXServer, "kgio_accept", unix_accept, 0);
 
 	cTCPServer = rb_const_get(rb_cObject, rb_intern("TCPServer"));
 	cTCPServer = rb_define_class_under(mKgio, "TCPServer", cTCPServer);
+	rb_define_method(cTCPServer, "kgio_tryaccept", tcp_tryaccept, 0);
 	rb_define_method(cTCPServer, "kgio_accept", tcp_accept, 0);
 
 	cTCPSocket = rb_const_get(rb_cObject, rb_intern("TCPSocket"));

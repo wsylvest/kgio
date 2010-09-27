@@ -1,7 +1,4 @@
-require 'test/unit'
-require 'io/nonblock'
-$-w = true
-require 'kgio'
+require './test/lib_server_accept'
 
 class TestKgioTCPServer < Test::Unit::TestCase
 
@@ -11,21 +8,9 @@ class TestKgioTCPServer < Test::Unit::TestCase
     @port = @srv.addr[1]
   end
 
-  def teardown
-    @srv.close unless @srv.closed?
-    Kgio.accept_cloexec = true
-    Kgio.accept_nonblock = false
+  def client_connect
+    TCPSocket.new(@host, @port)
   end
 
-  def test_accept
-    a = TCPSocket.new(@host, @port)
-    b = @srv.kgio_accept
-    assert_kind_of Kgio::Socket, b
-    assert_equal @host, b.kgio_addr
-  end
-
-  def test_accept_nonblock
-    @srv.nonblock = true
-    assert_equal nil, @srv.kgio_accept
-  end
+  include LibServerAccept
 end

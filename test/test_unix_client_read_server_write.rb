@@ -9,7 +9,7 @@ class TestUnixServerReadClientWrite < Test::Unit::TestCase
     tmp.close rescue nil
     @srv = Kgio::UNIXServer.new(@path)
     @rd = Kgio::UNIXSocket.new(@path)
-    @wr = @srv.kgio_accept
+    @wr = @srv.kgio_tryaccept
   end
 
   include LibReadWriteTest

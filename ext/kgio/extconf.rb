@@ -14,6 +14,7 @@ else
   have_func('rb_fdopen')
 end
 have_func('rb_io_ascii8bit_binmode')
+have_func('rb_thread_blocking_region')
 
 dir_config('kgio')
 create_makefile('kgio_ext')
