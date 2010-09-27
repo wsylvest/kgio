@@ -34,6 +34,14 @@ class TestKgioTcpConnect < Test::Unit::TestCase
     assert_equal nil, sock.kgio_write("HELLO")
   end
 
+  def test_start
+    sock = Kgio::Socket.start(@addr)
+    assert_kind_of Kgio::Socket, sock
+    ready = IO.select(nil, [ sock ])
+    assert_equal sock, ready[1][0]
+    assert_equal nil, sock.kgio_write("HELLO")
+  end
+
   def test_tcp_socket_new_invalid
     assert_raises(ArgumentError) { Kgio::TCPSocket.new('example.com', 80) }
     assert_raises(ArgumentError) { Kgio::TCPSocket.new('999.999.999.999', 80) }
@@ -42,6 +50,15 @@ class TestKgioTcpConnect < Test::Unit::TestCase
   def test_tcp_socket_new
     sock = Kgio::TCPSocket.new(@host, @port)
     assert_instance_of Kgio::TCPSocket, sock
+    ready = IO.select(nil, [ sock ])
+    assert_equal sock, ready[1][0]
+    assert_equal nil, sock.kgio_write("HELLO")
+  end
+
+  def test_socket_start
+    Kgio::wait_writable = :wait_writable
+    sock = SubSocket.start(@addr)
+    assert_nil sock.foo
     ready = IO.select(nil, [ sock ])
     assert_equal sock, ready[1][0]
     assert_equal nil, sock.kgio_write("HELLO")

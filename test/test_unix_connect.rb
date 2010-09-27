@@ -48,6 +48,23 @@ class TestKgioUnixConnect < Test::Unit::TestCase
     assert_equal nil, sock.kgio_write("HELLO")
   end
 
+  def test_start
+    sock = Kgio::Socket.start(@addr)
+    assert_instance_of Kgio::Socket, sock
+    ready = IO.select(nil, [ sock ])
+    assert_equal sock, ready[1][0]
+    assert_equal nil, sock.kgio_write("HELLO")
+  end
+
+  def test_socket_start
+    Kgio::wait_writable = :wait_writable
+    sock = SubSocket.start(@addr)
+    assert_nil sock.foo
+    ready = IO.select(nil, [ sock ])
+    assert_equal sock, ready[1][0]
+    assert_equal nil, sock.kgio_write("HELLO")
+  end
+
   def test_wait_writable_set
     Kgio::wait_writable = :wait_writable
     sock = SubSocket.new(@addr)
