@@ -447,10 +447,17 @@ static VALUE set_nonblock(VALUE mod, VALUE boolean)
 	return Qnil;
 }
 
+static void close_fail(int fd, const char *msg)
+{
+	int saved_errno = errno;
+	(void)close(fd);
+	errno = saved_errno;
+	rb_sys_fail(msg);
+}
+
 static VALUE
 my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 {
-	int rc;
 	int fd = socket(domain, SOCK_STREAM, 0);
 
 	if (fd == -1) {
@@ -467,9 +474,11 @@ my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 		if (fd == -1)
 			rb_sys_fail("socket");
 	}
-	set_nonblocking(fd);
-	rc = connect(fd, addr, addrlen);
-	if (rc == -1) {
+
+	if (fcntl(fd, F_SETFL, O_RDWR | O_NONBLOCK) == -1)
+		close_fail(fd, "fcntl(F_SETFL, O_RDWR | O_NONBLOCK)");
+
+	if (connect(fd, addr, addrlen) == -1) {
 		if (errno == EINPROGRESS) {
 			VALUE io = sock_for_fd(klass, fd);
 
@@ -479,7 +488,7 @@ my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 			}
 			return io;
 		}
-		rb_sys_fail("connect");
+		close_fail(fd, "connect");
 	}
 	return sock_for_fd(klass, fd);
 }
