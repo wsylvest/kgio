@@ -51,25 +51,21 @@ struct accept_args {
 	socklen_t *addrlen;
 };
 
-static void wait_readable(VALUE io)
+static void wait_readable(VALUE io, int fd)
 {
 	if (io_wait_rd) {
 		(void)rb_funcall(io, io_wait_rd, 0, 0);
 	} else {
-		int fd = my_fileno(io);
-
 		if (!rb_io_wait_readable(fd))
 			rb_sys_fail("wait readable");
 	}
 }
 
-static void wait_writable(VALUE io)
+static void wait_writable(VALUE io, int fd)
 {
 	if (io_wait_wr) {
 		(void)rb_funcall(io, io_wait_wr, 0, 0);
 	} else {
-		int fd = my_fileno(io);
-
 		if (!rb_io_wait_writable(fd))
 			rb_sys_fail("wait writable");
 	}
@@ -100,7 +96,7 @@ static int read_check(struct io_args *a, long n, const char *msg, int io_wait)
 		rb_str_set_len(a->buf, 0);
 		if (errno == EAGAIN) {
 			if (io_wait) {
-				wait_readable(a->io);
+				wait_readable(a->io, a->fd);
 				return -1;
 			} else {
 				a->buf = mKgio_WaitReadable;
@@ -202,7 +198,7 @@ static int write_check(struct io_args *a, long n, const char *msg, int io_wait)
 			return -1;
 		if (errno == EAGAIN) {
 			if (io_wait) {
-				wait_writable(a->io);
+				wait_writable(a->io, a->fd);
 				return -1;
 			} else {
 				a->buf = mKgio_WaitWritable;
@@ -586,7 +582,7 @@ my_connect(VALUE klass, int io_wait, int domain, void *addr, socklen_t addrlen)
 
 			if (io_wait) {
 				errno = EAGAIN;
-				wait_writable(io);
+				wait_writable(io, fd);
 			}
 			return io;
 		}
