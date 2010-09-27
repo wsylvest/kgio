@@ -4,6 +4,8 @@ $-w = true
 require 'kgio'
 
 module LibReadWriteTest
+  RANDOM_BLOB = File.open("/dev/urandom") { |fp| fp.read(10 * 1024 * 1024) }
+
   def teardown
     assert_nothing_raised do
       @rd.close unless @rd.closed?
@@ -110,16 +112,16 @@ module LibReadWriteTest
   end
 
   def test_monster_trywrite
-    buf = "." * 1024 * 1024 * 10
+    buf = RANDOM_BLOB.dup
     rv = @wr.kgio_trywrite(buf)
     assert_kind_of String, rv
     assert rv.size < buf.size
     @rd.nonblock = false
-    assert_equal(buf, (rv + @rd.read(buf.size - rv.size)))
+    assert_equal(buf, @rd.read(buf.size - rv.size) + rv)
   end
 
   def test_monster_write
-    buf = "." * 1024 * 1024 * 10
+    buf = RANDOM_BLOB.dup
     thr = Thread.new { @wr.kgio_write(buf) }
     @rd.nonblock = false
     readed = @rd.read(buf.size)
