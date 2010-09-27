@@ -6,7 +6,7 @@ class TesTcpClientReadServerWrite < Test::Unit::TestCase
     @srv = Kgio::TCPServer.new(@host, 0)
     @port = @srv.addr[1]
     @wr = Kgio::TCPSocket.new(@host, @port)
-    @rd = @srv.kgio_tryaccept
+    @rd = @srv.kgio_accept
   end
 
   include LibReadWriteTest
