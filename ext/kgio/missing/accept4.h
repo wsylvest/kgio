@@ -1,4 +1,7 @@
-#ifndef HAVE_ACCEPT4
+#ifdef HAVE_ACCEPT4
+#  define A4_SOCK_CLOEXEC SOCK_CLOEXEC
+#  define A4_SOCK_NONBLOCK SOCK_NONBLOCK
+#else
 #  ifndef _GNU_SOURCE
 #    define _GNU_SOURCE
 #  endif
