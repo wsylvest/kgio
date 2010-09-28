@@ -97,6 +97,10 @@ static int read_check(struct io_args *a, long n, const char *msg, int io_wait)
 		if (errno == EAGAIN) {
 			if (io_wait) {
 				wait_readable(a->io, a->fd);
+
+				/* buf may be modified in other thread/fiber */
+				rb_str_resize(a->buf, a->len);
+				a->ptr = RSTRING_PTR(a->buf);
 				return -1;
 			} else {
 				a->buf = mKgio_WaitReadable;
@@ -215,13 +219,22 @@ static void prepare_write(struct io_args *a, VALUE io, VALUE str)
 static int write_check(struct io_args *a, long n, const char *msg, int io_wait)
 {
 	if (a->len == n) {
+done:
 		a->buf = Qnil;
 	} else if (n == -1) {
 		if (errno == EINTR)
 			return -1;
 		if (errno == EAGAIN) {
 			if (io_wait) {
+				long written = RSTRING_LEN(a->buf) - a->len;
+
 				wait_writable(a->io, a->fd);
+
+				/* buf may be modified in other thread/fiber */
+				a->len = RSTRING_LEN(a->buf) - written;
+				if (a->len <= 0)
+					goto done;
+				a->ptr = RSTRING_PTR(a->buf) + written;
 				return -1;
 			} else {
 				a->buf = mKgio_WaitWritable;
