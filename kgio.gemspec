@@ -32,5 +32,5 @@ Gem::Specification.new do |s|
   s.test_files = Dir['test/test_*.rb']
   s.extensions = %w(ext/kgio/extconf.rb)
 
-  # s.license = %w(GPL Ruby) # disabled for compatibility with older RubyGems
+  # s.license = %w(LGPL) # disabled for compatibility with older RubyGems
 end
