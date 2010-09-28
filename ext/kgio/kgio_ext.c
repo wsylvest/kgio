@@ -15,6 +15,7 @@
 #include <assert.h>
 
 #include "missing/accept4.h"
+#include "missing/ancient_ruby.h"
 #include "nonblock.h"
 #include "my_fileno.h"
 #include "sock_for_fd.h"
