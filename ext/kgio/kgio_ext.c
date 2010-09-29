@@ -32,6 +32,8 @@ static int accept4_flags = A4_SOCK_CLOEXEC;
 static int accept4_flags = A4_SOCK_CLOEXEC | A4_SOCK_NONBLOCK;
 #endif /* ! linux */
 
+static VALUE cClientSocket;
+static VALUE mSocketMethods;
 static VALUE cSocket;
 static VALUE localhost;
 static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
@@ -533,7 +535,7 @@ retry:
 			rb_sys_fail("accept");
 		}
 	}
-	return sock_for_fd(cSocket, client);
+	return sock_for_fd(cClientSocket, client);
 }
 
 static void in_addr_set(VALUE io, struct sockaddr_in *addr)
@@ -950,10 +952,34 @@ static VALUE kgio_start(VALUE klass, VALUE addr)
 	return stream_connect(klass, addr, 0);
 }
 
+static VALUE set_accepted(VALUE klass, VALUE aclass)
+{
+	VALUE tmp;
+
+	if (NIL_P(aclass))
+		aclass = cSocket;
+
+	tmp = rb_funcall(aclass, rb_intern("included_modules"), 0, 0);
+	tmp = rb_funcall(tmp, rb_intern("include?"), 1, mSocketMethods);
+
+	if (tmp != Qtrue)
+		rb_raise(rb_eTypeError,
+		         "class must include Kgio::SocketMethods");
+
+	cClientSocket = aclass;
+
+	return aclass;
+}
+
+static VALUE get_accepted(VALUE klass)
+{
+	return cClientSocket;
+}
+
 void Init_kgio_ext(void)
 {
 	VALUE mKgio = rb_define_module("Kgio");
-	VALUE mPipeMethods, mSocketMethods;
+	VALUE mPipeMethods;
 	VALUE cUNIXServer, cTCPServer, cUNIXSocket, cTCPSocket;
 
 	rb_require("socket");
@@ -967,6 +993,7 @@ void Init_kgio_ext(void)
 	 */
 	cSocket = rb_const_get(rb_cObject, rb_intern("Socket"));
 	cSocket = rb_define_class_under(mKgio, "Socket", cSocket);
+	cClientSocket = cSocket;
 
 	localhost = rb_str_new2("127.0.0.1");
 
@@ -1001,6 +1028,8 @@ void Init_kgio_ext(void)
 	rb_define_singleton_method(mKgio, "accept_cloexec=", set_cloexec, 1);
 	rb_define_singleton_method(mKgio, "accept_nonblock?", get_nonblock, 0);
 	rb_define_singleton_method(mKgio, "accept_nonblock=", set_nonblock, 1);
+	rb_define_singleton_method(mKgio, "accept_class=", set_accepted, 1);
+	rb_define_singleton_method(mKgio, "accept_class", get_accepted, 0);
 
 	/*
 	 * Document-module: Kgio::PipeMethods
