@@ -228,9 +228,9 @@ done:
 		if (errno == EINTR)
 			return -1;
 		if (errno == EAGAIN) {
-			if (io_wait) {
-				long written = RSTRING_LEN(a->buf) - a->len;
+			long written = RSTRING_LEN(a->buf) - a->len;
 
+			if (io_wait) {
 				wait_writable(a->io, a->fd);
 
 				/* buf may be modified in other thread/fiber */
@@ -239,20 +239,19 @@ done:
 					goto done;
 				a->ptr = RSTRING_PTR(a->buf) + written;
 				return -1;
+			} else if (written > 0) {
+				a->buf = rb_str_new(a->ptr + n, a->len - n);
 			} else {
 				a->buf = mKgio_WaitWritable;
-				return 0;
 			}
+			return 0;
 		}
 		rb_sys_fail(msg);
 	} else {
 		assert(n >= 0 && n < a->len && "write/send syscall broken?");
-		if (io_wait) {
-			a->ptr += n;
-			a->len -= n;
-			return -1;
-		}
-		a->buf = rb_str_new(a->ptr + n, a->len - n);
+		a->ptr += n;
+		a->len -= n;
+		return -1;
 	}
 	return 0;
 }
@@ -294,10 +293,11 @@ static VALUE kgio_write(VALUE io, VALUE str)
  *
  * Returns nil if the write was completed in full.
  *
- * Returns a String containing the unwritten portion if there was a
- * partial write.
+ * Returns a String containing the unwritten portion if EAGAIN
+ * was encountered, but some portion was successfully written.
  *
- * Returns Kgio::WaitWritable if EAGAIN is encountered.
+ * Returns Kgio::WaitWritable if EAGAIN is encountered and nothing
+ * was written.
  */
 static VALUE kgio_trywrite(VALUE io, VALUE str)
 {
