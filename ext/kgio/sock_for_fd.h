@@ -1,3 +1,5 @@
+#ifndef SOCK_FOR_FD_H
+#define SOCK_FOR_FD_H
 #include <ruby.h>
 #ifdef HAVE_RUBY_IO_H
 #  include <ruby/io.h>
@@ -64,3 +66,4 @@ static void init_sock_for_fd(void)
 #if SOCK_FOR_FD > 0
 #  define init_sock_for_fd() if (0)
 #endif
+#endif /* SOCK_FOR_FD_H */

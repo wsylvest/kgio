@@ -1,3 +1,21 @@
+# -*- encoding: binary -*-
+require 'socket'
+module Kgio
+
+  # The IPv4 address of UNIX domain sockets, useful for creating
+  # Rack (and CGI) servers that also serve HTTP traffic over
+  # UNIX domain sockets.
+  LOCALHOST = '127.0.0.1'
+end
+
+# Kgio::PipeMethods#kgio_tryread and Kgio::SocketMethods#kgio_tryread will
+# return this constant when waiting for a read is required.
+module Kgio::WaitReadable; end
+
+# PipeMethods#kgio_trywrite and SocketMethods#kgio_trywrite will
+# return this constant when waiting for a read is required.
+module Kgio::WaitWritable; end
+
 require 'kgio_ext'
 
 # use Kgio::Pipe.popen and Kgio::Pipe.new instead of IO.popen
