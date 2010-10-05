@@ -1,5 +1,6 @@
 #include "kgio.h"
 static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
+static VALUE eErrno_EPIPE, eErrno_ECONNRESET;
 
 /*
  * we know MSG_DONTWAIT works properly on all stream sockets under Linux
@@ -10,15 +11,35 @@ static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
 #  define USE_MSG_DONTWAIT
 #endif
 
+NORETURN(static void raise_empty_bt(VALUE, const char *));
 NORETURN(static void my_eof_error(void));
+NORETURN(static void wr_sys_fail(const char *));
 
-static void my_eof_error(void)
+static void raise_empty_bt(VALUE err, const char *msg)
 {
-	VALUE exc = rb_exc_new2(rb_eEOFError, "");
+	VALUE exc = rb_exc_new2(err, msg);
 	VALUE bt = rb_ary_new();
 
 	rb_funcall(exc, rb_intern("set_backtrace"), 1, bt);
 	rb_exc_raise(exc);
+}
+
+static void my_eof_error(void)
+{
+	raise_empty_bt(rb_eEOFError, "");
+}
+
+static void wr_sys_fail(const char *msg)
+{
+	switch (errno) {
+	case EPIPE:
+		errno = 0;
+		raise_empty_bt(eErrno_EPIPE, msg);
+	case ECONNRESET:
+		errno = 0;
+		raise_empty_bt(eErrno_ECONNRESET, msg);
+	}
+	rb_sys_fail(msg);
 }
 
 static void prepare_read(struct io_args *a, int argc, VALUE *argv, VALUE io)
@@ -218,7 +239,7 @@ done:
 			}
 			return 0;
 		}
-		rb_sys_fail(msg);
+		wr_sys_fail(msg);
 	} else {
 		assert(n >= 0 && n < a->len && "write/send syscall broken?");
 		a->ptr += n;
@@ -360,4 +381,7 @@ void init_kgio_read_write(VALUE mKgio)
 	 * Kgio::LOCALHOST constant for UNIX domain sockets.
 	 */
 	rb_define_attr(mSocketMethods, "kgio_addr", 1, 1);
+
+	eErrno_EPIPE = rb_const_get(rb_mErrno, rb_intern("EPIPE"));
+	eErrno_ECONNRESET = rb_const_get(rb_mErrno, rb_intern("ECONNRESET"));
 }

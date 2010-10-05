@@ -38,16 +38,24 @@ module LibReadWriteTest
 
   def test_write_closed
     @rd.close
-    assert_raises(Errno::EPIPE, Errno::ECONNRESET) {
+    begin
       loop { @wr.kgio_write "HI" }
-    }
+    rescue Errno::EPIPE, Errno::ECONNRESET => e
+      assert_equal [], e.backtrace
+      return
+    end
+    assert false, "should never get here (line:#{__LINE__})"
   end
 
   def test_trywrite_closed
     @rd.close
-    assert_raises(Errno::EPIPE, Errno::ECONNRESET) {
+    begin
       loop { @wr.kgio_trywrite "HI" }
-    }
+    rescue Errno::EPIPE, Errno::ECONNRESET => e
+      assert_equal [], e.backtrace
+      return
+    end
+    assert false, "should never get here (line:#{__LINE__})"
   end
 
   def test_write_conv
