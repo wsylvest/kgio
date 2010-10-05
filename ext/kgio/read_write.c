@@ -10,6 +10,17 @@ static VALUE mKgio_WaitReadable, mKgio_WaitWritable;
 #  define USE_MSG_DONTWAIT
 #endif
 
+NORETURN(static void my_eof_error(void));
+
+static void my_eof_error(void)
+{
+	VALUE exc = rb_exc_new2(rb_eEOFError, "");
+	VALUE bt = rb_ary_new();
+
+	rb_funcall(exc, rb_intern("set_backtrace"), 1, bt);
+	rb_exc_raise(exc);
+}
+
 static void prepare_read(struct io_args *a, int argc, VALUE *argv, VALUE io)
 {
 	VALUE length;
@@ -91,6 +102,18 @@ static VALUE kgio_read(int argc, VALUE *argv, VALUE io)
 }
 
 /*
+ * Same as Kgio::PipeMethods#kgio_read, except EOFError is raised
+ * on EOF without a backtrace
+ */
+static VALUE kgio_read_bang(int argc, VALUE *argv, VALUE io)
+{
+	VALUE rv = my_read(1, argc, argv, io);
+
+	if (NIL_P(rv)) my_eof_error();
+	return rv;
+}
+
+/*
  * call-seq:
  *
  *	io.kgio_tryread(maxlen)           ->  buffer
@@ -133,6 +156,18 @@ static VALUE kgio_recv(int argc, VALUE *argv, VALUE io)
 }
 
 /*
+ * Same as Kgio::SocketMethods#kgio_read, except EOFError is raised
+ * on EOF without a backtrace
+ */
+static VALUE kgio_recv_bang(int argc, VALUE *argv, VALUE io)
+{
+	VALUE rv = my_recv(1, argc, argv, io);
+
+	if (NIL_P(rv)) my_eof_error();
+	return rv;
+}
+
+/*
  * This method may be optimized on some systems (e.g. GNU/Linux) to use
  * MSG_DONTWAIT to avoid explicitly setting the O_NONBLOCK flag via fcntl.
  * Otherwise this is the same as Kgio::PipeMethods#kgio_tryread
@@ -143,6 +178,7 @@ static VALUE kgio_tryrecv(int argc, VALUE *argv, VALUE io)
 }
 #else /* ! USE_MSG_DONTWAIT */
 #  define kgio_recv kgio_read
+#  define kgio_recv_bang kgio_read_bang
 #  define kgio_tryrecv kgio_tryread
 #endif /* USE_MSG_DONTWAIT */
 
@@ -299,6 +335,7 @@ void init_kgio_read_write(VALUE mKgio)
 	 */
 	mPipeMethods = rb_define_module_under(mKgio, "PipeMethods");
 	rb_define_method(mPipeMethods, "kgio_read", kgio_read, -1);
+	rb_define_method(mPipeMethods, "kgio_read!", kgio_read_bang, -1);
 	rb_define_method(mPipeMethods, "kgio_write", kgio_write, 1);
 	rb_define_method(mPipeMethods, "kgio_tryread", kgio_tryread, -1);
 	rb_define_method(mPipeMethods, "kgio_trywrite", kgio_trywrite, 1);
@@ -312,6 +349,7 @@ void init_kgio_read_write(VALUE mKgio)
 	 */
 	mSocketMethods = rb_define_module_under(mKgio, "SocketMethods");
 	rb_define_method(mSocketMethods, "kgio_read", kgio_recv, -1);
+	rb_define_method(mSocketMethods, "kgio_read!", kgio_recv_bang, -1);
 	rb_define_method(mSocketMethods, "kgio_write", kgio_send, 1);
 	rb_define_method(mSocketMethods, "kgio_tryread", kgio_tryrecv, -1);
 	rb_define_method(mSocketMethods, "kgio_trywrite", kgio_trysend, 1);

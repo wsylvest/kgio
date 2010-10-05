@@ -21,6 +21,16 @@ module LibReadWriteTest
     assert_nil @rd.kgio_read(5)
   end
 
+  def test_read_bang_eof
+    @wr.close
+    begin
+      @rd.kgio_read!(5)
+      assert false, "should never get here (line:#{__LINE__})"
+    rescue EOFError => e
+      assert_equal [], e.backtrace
+    end
+  end
+
   def test_tryread_eof
     @wr.close
     assert_nil @rd.kgio_tryread(5)
