@@ -128,8 +128,8 @@ $(pkgtgz): manifest fix-perms
 	@test -n "$(distdir)"
 	$(RM) -r $(distdir)
 	mkdir -p $(distdir)
-	tar c `cat .manifest` | (cd $(distdir) && tar x)
-	cd pkg && tar c $(basename $(@F)) | gzip -9 > $(@F)+
+	tar cf - `cat .manifest` | (cd $(distdir) && tar xf -)
+	cd pkg && tar cf - $(basename $(@F)) | gzip -9 > $(@F)+
 	mv $@+ $@
 
 package: $(pkgtgz) $(pkggem)
