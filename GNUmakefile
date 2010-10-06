@@ -155,7 +155,7 @@ ext := ext/kgio/kgio_ext.$(DLEXT)
 ext/kgio/Makefile: ext/kgio/extconf.rb
 	cd $(@D) && $(RUBY) extconf.rb
 
-$(ext): ext/kgio/kgio_ext.c ext/kgio/Makefile
+$(ext): $(wildcard ext/kgio/*.[ch] ext/kgio/*/*.h) ext/kgio/Makefile
 	$(MAKE) -C $(@D)
 
 all:: test
