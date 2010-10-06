@@ -33,8 +33,12 @@ accept4(int sockfd, struct sockaddr *addr, socklen_t *addrlen, int flags)
 		if ((flags & SOCK_NONBLOCK) == SOCK_NONBLOCK) {
 			int fl = fcntl(fd, F_GETFL);
 
-			if ((fl & O_NONBLOCK) == 0)
-				(void)fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+			/*
+			 * unconditional, OSX 10.4 (and maybe other *BSDs)
+			 * F_GETFL returns a false O_NONBLOCK with TCP sockets
+			 * (but not UNIX sockets) [ruby-talk:274079]
+			 */
+			(void)fcntl(fd, F_SETFL, fl | O_NONBLOCK);
 		}
 
 		/*
