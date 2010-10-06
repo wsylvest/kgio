@@ -283,7 +283,7 @@ static VALUE get_nonblock(VALUE mod)
  * call-seq:
  *
  *	Kgio.accept_cloexec = true
- *	Kgio.accept_clocexec = false
+ *	Kgio.accept_cloexec = false
  *
  * Sets whether or not Kgio::Socket objects created by
  * TCPServer#kgio_accept,
