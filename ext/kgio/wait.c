@@ -106,8 +106,10 @@ static VALUE wait_rd(VALUE mod)
 	return io_wait_rd ? ID2SYM(io_wait_rd) : Qnil;
 }
 
-void init_kgio_wait(VALUE mKgio)
+void init_kgio_wait(void)
 {
+	VALUE mKgio = rb_define_module("Kgio");
+
 	rb_define_singleton_method(mKgio, "wait_readable=", set_wait_rd, 1);
 	rb_define_singleton_method(mKgio, "wait_writable=", set_wait_wr, 1);
 	rb_define_singleton_method(mKgio, "wait_readable", wait_rd, 0);

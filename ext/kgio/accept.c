@@ -341,9 +341,10 @@ static VALUE set_nonblock(VALUE mod, VALUE boolean)
 	return Qnil;
 }
 
-void init_kgio_accept(VALUE mKgio)
+void init_kgio_accept(void)
 {
 	VALUE cUNIXServer, cTCPServer;
+	VALUE mKgio = rb_define_module("Kgio");
 
 	localhost = rb_const_get(mKgio, rb_intern("LOCALHOST"));
 	cKgio_Socket = rb_const_get(mKgio, rb_intern("Socket"));

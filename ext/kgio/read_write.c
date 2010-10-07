@@ -340,9 +340,10 @@ static VALUE kgio_trysend(VALUE io, VALUE str)
 #  define kgio_trysend kgio_trywrite
 #endif /* ! USE_MSG_DONTWAIT */
 
-void init_kgio_read_write(VALUE mKgio)
+void init_kgio_read_write(void)
 {
 	VALUE mPipeMethods, mSocketMethods;
+	VALUE mKgio = rb_define_module("Kgio");
 
 	mKgio_WaitReadable = rb_const_get(mKgio, rb_intern("WaitReadable"));
 	mKgio_WaitWritable = rb_const_get(mKgio, rb_intern("WaitWritable"));

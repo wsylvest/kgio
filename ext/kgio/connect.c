@@ -223,8 +223,9 @@ static VALUE kgio_start(VALUE klass, VALUE addr)
 	return stream_connect(klass, addr, 0);
 }
 
-void init_kgio_connect(VALUE mKgio)
+void init_kgio_connect(void)
 {
+	VALUE mKgio = rb_define_module("Kgio");
 	VALUE cSocket = rb_const_get(rb_cObject, rb_intern("Socket"));
 	VALUE mSocketMethods = rb_const_get(mKgio, rb_intern("SocketMethods"));
 	VALUE cKgio_Socket, cTCPSocket, cUNIXSocket;

@@ -29,10 +29,10 @@ struct io_args {
 	int fd;
 };
 
-void init_kgio_wait(VALUE mKgio);
-void init_kgio_read_write(VALUE mKgio);
-void init_kgio_accept(VALUE mKgio);
-void init_kgio_connect(VALUE mKgio);
+void init_kgio_wait(void);
+void init_kgio_read_write(void);
+void init_kgio_accept(void);
+void init_kgio_connect(void);
 
 void kgio_wait_writable(VALUE io, int fd);
 void kgio_wait_readable(VALUE io, int fd);
