@@ -83,6 +83,8 @@ module LibReadWriteTest
         case rv
         when String
           wr = rv
+        when Kgio::WaitReadable
+          assert false, "should never get here line=#{__LINE__}"
         when Kgio::WaitWritable
           IO.select(nil, [ @wr ])
         else
@@ -144,6 +146,8 @@ module LibReadWriteTest
   def test_trywrite_return_wait_writable
     tmp = []
     tmp << @wr.kgio_trywrite("HI") until tmp[-1] == Kgio::WaitWritable
+    assert Kgio::WaitWritable === tmp[-1]
+    assert(!(Kgio::WaitReadable === tmp[-1]))
     assert_equal Kgio::WaitWritable, tmp.pop
     assert tmp.size > 0
     penultimate = tmp.pop
