@@ -6,15 +6,15 @@ module Kgio
   # Rack (and CGI) servers that also serve HTTP traffic over
   # UNIX domain sockets.
   LOCALHOST = '127.0.0.1'
+
+  # Kgio::PipeMethods#kgio_tryread and Kgio::SocketMethods#kgio_tryread will
+  # return this constant when waiting for a read is required.
+  WaitReadable = :wait_readable
+
+  # PipeMethods#kgio_trywrite and SocketMethods#kgio_trywrite will
+  # return this constant when waiting for a read is required.
+  WaitWritable = :wait_writable
 end
-
-# Kgio::PipeMethods#kgio_tryread and Kgio::SocketMethods#kgio_tryread will
-# return this constant when waiting for a read is required.
-module Kgio::WaitReadable; end
-
-# PipeMethods#kgio_trywrite and SocketMethods#kgio_trywrite will
-# return this constant when waiting for a read is required.
-module Kgio::WaitWritable; end
 
 require 'kgio_ext'
 
