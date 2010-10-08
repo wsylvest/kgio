@@ -1,5 +1,7 @@
+# -*- encoding: binary -*-
 require 'test/unit'
 require 'io/nonblock'
+require 'digest/sha1'
 $-w = true
 require 'kgio'
 
@@ -56,6 +58,41 @@ module LibReadWriteTest
       return
     end
     assert false, "should never get here (line:#{__LINE__})"
+  end
+
+  def test_trywrite_full
+    buf = "\302\251" * 1024 * 1024
+    buf2 = ""
+    dig = Digest::SHA1.new
+    t = Thread.new do
+      sleep 1
+      nr = 0
+      begin
+        dig.update(@rd.readpartial(4096, buf2))
+        nr += buf2.size
+      rescue EOFError
+        break
+      rescue => e
+      end while true
+      dig.hexdigest
+    end
+    50.times do
+      wr = buf
+      begin
+        rv = @wr.kgio_trywrite(wr)
+        case rv
+        when String
+          wr = rv
+        when Kgio::WaitWritable
+          IO.select(nil, [ @wr ])
+        else
+          wr = false
+        end
+      end while wr
+    end
+    @wr.close
+    t.join
+    assert_equal '8ff79d8115f9fe38d18be858c66aa08a1cc27a66', t.value
   end
 
   def test_write_conv

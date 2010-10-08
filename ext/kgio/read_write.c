@@ -233,7 +233,7 @@ done:
 				a->ptr = RSTRING_PTR(a->buf) + written;
 				return -1;
 			} else if (written > 0) {
-				a->buf = rb_str_new(a->ptr + n, a->len - n);
+				a->buf = rb_str_new(a->ptr, a->len);
 			} else {
 				a->buf = mKgio_WaitWritable;
 			}
