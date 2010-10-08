@@ -92,11 +92,14 @@ static VALUE my_read(int io_wait, int argc, VALUE *argv, VALUE io)
 	long n;
 
 	prepare_read(&a, argc, argv, io);
-	set_nonblocking(a.fd);
+
+	if (a.len > 0) {
+		set_nonblocking(a.fd);
 retry:
-	n = (long)read(a.fd, a.ptr, a.len);
-	if (read_check(&a, n, "read", io_wait) != 0)
-		goto retry;
+		n = (long)read(a.fd, a.ptr, a.len);
+		if (read_check(&a, n, "read", io_wait) != 0)
+			goto retry;
+	}
 	return a.buf;
 }
 
@@ -159,10 +162,13 @@ static VALUE my_recv(int io_wait, int argc, VALUE *argv, VALUE io)
 	long n;
 
 	prepare_read(&a, argc, argv, io);
+
+	if (a.len > 0) {
 retry:
-	n = (long)recv(a.fd, a.ptr, a.len, MSG_DONTWAIT);
-	if (read_check(&a, n, "recv", io_wait) != 0)
-		goto retry;
+		n = (long)recv(a.fd, a.ptr, a.len, MSG_DONTWAIT);
+		if (read_check(&a, n, "recv", io_wait) != 0)
+			goto retry;
+	}
 	return a.buf;
 }
 

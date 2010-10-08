@@ -18,6 +18,20 @@ module LibReadWriteTest
     end
   end
 
+  def test_read_zero
+    assert_equal "", @rd.kgio_read(0)
+    buf = "foo"
+    assert_equal buf.object_id, @rd.kgio_read(0, buf).object_id
+    assert_equal "", buf
+  end
+
+  def test_tryread_zero
+    assert_equal "", @rd.kgio_tryread(0)
+    buf = "foo"
+    assert_equal buf.object_id, @rd.kgio_tryread(0, buf).object_id
+    assert_equal "", buf
+  end
+
   def test_read_eof
     @wr.close
     assert_nil @rd.kgio_read(5)
