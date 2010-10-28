@@ -127,7 +127,9 @@ static VALUE kgio_read(int argc, VALUE *argv, VALUE io)
 
 /*
  * Same as Kgio::PipeMethods#kgio_read, except EOFError is raised
- * on EOF without a backtrace
+ * on EOF without a backtrace.  This method is intended as a
+ * drop-in replacement for places where IO#readpartial is used, and
+ * may be aliased as such.
  */
 static VALUE kgio_read_bang(int argc, VALUE *argv, VALUE io)
 {
