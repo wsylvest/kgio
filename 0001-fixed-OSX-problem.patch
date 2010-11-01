@@ -1,0 +1,32 @@
+From 250d798f2e6b5a6efc8c0e125a7c0d578ed7f92f Mon Sep 17 00:00:00 2001
+From: William Sylvester <wsylvest@gmail.com>
+Date: Mon, 1 Nov 2010 14:10:24 -0400
+Subject: [PATCH] fixed OSX problem
+
+---
+ ext/kgio/missing/ancient_ruby.h |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/ext/kgio/missing/ancient_ruby.h b/ext/kgio/missing/ancient_ruby.h
+index 014e4b8..9274942 100644
+--- a/ext/kgio/missing/ancient_ruby.h
++++ b/ext/kgio/missing/ancient_ruby.h
+@@ -1,13 +1,14 @@
+ #ifndef MISSING_ANCIENT_RUBY_H
+ #define MISSING_ANCIENT_RUBY_H
+ 
++/* 
+ #ifndef HAVE_RB_STR_SET_LEN
+ static void rb_str_set_len(VALUE str, long len)
+ {
+ 	RSTRING(str)->len = len;
+ 	RSTRING(str)->ptr[len] = '\0';
+ }
+-#endif /* ! HAVE_RB_STR_SET_LEN */
++#endif */ /* ! HAVE_RB_STR_SET_LEN */
+ 
+ #ifndef RSTRING_PTR
+ #  define RSTRING_PTR(s) (RSTRING(s)->ptr)
+-- 
+1.6.2.1
+
